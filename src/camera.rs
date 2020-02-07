@@ -1,20 +1,31 @@
 extern crate chrono;
 extern crate regex;
 
-use std::fs::DirEntry;
 use std::io;
-use std::io::Error;
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, FixedOffset, ParseError, ParseResult};
-
 use regex::Regex;
+use std::fmt::{Display, Formatter, Error};
+use self::chrono::NaiveDateTime;
+use crate::formats::{err_from_str, parse_error_to_io_error, parse_tesla_timestamp};
 
-enum Camera {
+#[derive(PartialEq)]
+pub enum Camera {
     Back,
     Front,
     Right,
     Left,
+}
+
+impl Display for Camera {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match *self {
+            Camera::Back => f.write_str("Back"),
+            Camera::Front => f.write_str("Front"),
+            Camera::Left => f.write_str("Left"),
+            Camera::Right => f.write_str("Right"),
+        }
+    }
 }
 
 impl Camera {
@@ -35,33 +46,30 @@ impl Camera {
         }
     }
 
-    fn parse_date(date_str: &str) -> ParseResult<DateTime<FixedOffset>> {
-        DateTime::parse_from_str(date_str, "&Y-%m-%d_%H-%M-%S")
-    }
-}
-
-fn parse_error_to_io_error(err: ParseError) -> io::Error {
-    err_from_str(format!("{}", err).as_str())
-}
-
-fn err_from_str(msg: &str) -> io::Error {
-    io::Error::new(io::ErrorKind::Other, msg)
 }
 
 pub struct CameraFile {
-    path: PathBuf,
-    camera: Camera,
-    start_time: DateTime<FixedOffset>,
+    pub path: PathBuf,
+    pub camera: Camera,
+    pub start_time: NaiveDateTime,
+}
+
+impl Display for CameraFile {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        write!(f, "{} - {} - {}", self.path.display(), self.start_time, self.camera)
+    }
 }
 
 impl CameraFile {
     pub fn from(path: &Path) -> io::Result<CameraFile> {
         assert!(path.extension().and_then(|f| f.to_str()) == Some("mp4"));
         let file_name = path.file_stem().and_then(|f| f.to_str()).ok_or(err_from_str("Invalid filename"))?;
+        log::debug!("Creating a CamaraFile for file '{}'", file_name);
         let re = Regex::new(r"(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})-([a-zA-Z0-9_]+)").unwrap();
         let mut captures = re.captures_iter(file_name);
         let capture = captures.next().ok_or(err_from_str("Cannot identify the format of the file"))?;
-        let date_time = Camera::parse_date(&capture[1]).map_err(parse_error_to_io_error)?;
+        log::debug!("Identified time of capture ({}) and camera ({})", &capture[1], &capture[2]);
+        let date_time = parse_tesla_timestamp(&capture[1]).map_err(parse_error_to_io_error)?;
         let camera = Camera::from(&capture[2]).ok_or(err_from_str("Cannot identify camera from the file name"))?;
         Ok(CameraFile { path: path.to_owned(), camera, start_time: date_time })
     }
