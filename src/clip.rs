@@ -81,6 +81,7 @@ impl SentryClip {
         Command::new("ffmpeg")
             .args(args)
             .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status()?;
 
         delete_files(file_cameras.iter().map(|t| t.0.clone()).collect())?;
