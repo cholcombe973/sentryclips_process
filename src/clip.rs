@@ -7,8 +7,9 @@ use std::fs::{DirEntry, File, remove_file};
 use std::io;
 
 use crate::formats::{parse_tesla_timestamp, parse_error_to_io_error, file_stem, err_from_str};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::io::Write;
+use std::ffi::OsStr;
 
 pub struct SentryClip {
     pub folder: PathBuf,
@@ -47,6 +48,7 @@ impl SentryClip {
         let result_tmp_file= result_tmp_file_path.to_str().ok_or(err_from_str("Cannot build a path for temporary file"))?;
         let _status = Command::new("ffmpeg")
             .args(&["-f", "concat", "-safe", "0", "-i", playlist_filename.as_str(), "-c", "copy", result_tmp_file])
+            .stdout(Stdio::null())
             .status()?;
         Ok(result_tmp_file.to_string())
     }
@@ -78,6 +80,7 @@ impl SentryClip {
 
         Command::new("ffmpeg")
             .args(args)
+            .stdout(Stdio::null())
             .status()?;
 
         delete_files(file_cameras.iter().map(|t| t.0.clone()).collect())?;
@@ -89,6 +92,25 @@ impl SentryClip {
         let mosaic_filename = format!("{}-mosaic.mp4", self.when.format("%Y-%m-%d_%H-%M-%S"));
         Ok(self.folder.parent().ok_or(err_from_str(format!("Cannot find parent folder of {}", self.folder.display()).as_str()))?
             .join(mosaic_filename.as_str()))
+
+    }
+
+    pub fn process(&self) -> () {
+        log::info!("Processing clip folder {} [{}]", self.folder.display(), self.when);
+
+        match self.mosaic_file() {
+            Err(e) => log::warn!("Cannot calculate mosaic file name for clip folder {}: {}", self.folder.display(), e),
+            Ok(mosaic_file) if mosaic_file.exists() => log::info!("Mosaic file '{}' already exists, skipping", mosaic_file.display()),
+            Ok(_) => {
+                let all_cameras = Camera::all_cameras().into_iter();
+                let clip_files_and_camera: Vec<(String, Camera)> = all_cameras.filter_map(|camera| {
+                    self.concatenate_camera_files(&camera).ok().map(|f| (f, camera))
+                }).collect();
+                //Create mosaic
+                self.create_mosaic(&clip_files_and_camera)
+                    .map_err(|e| log::error!("Error creating mosaic for clip {}: {}", self.folder.display(), e)).unwrap();
+            }
+        }
 
     }
 }
@@ -129,7 +151,7 @@ fn list_files(root: &DirEntry) -> io::Result<Vec<DirEntry>> {
         match res {
             Ok(e) => {
                 log::info!("Found child {}", e.path().display());
-                if e.path().is_file() { Some(e) } else { None }
+                if e.path().is_file() && e.path().extension().eq(&Some(OsStr::new("mp4"))) { Some(e) } else { None }
             }
             Err(err) => {
                 log::error!("Found error: {}", err);
