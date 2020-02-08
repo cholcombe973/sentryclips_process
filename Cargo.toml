@@ -1,5 +1,5 @@
 [package]
-name = "sentryclips_handler"
+name = "sentryclips_process"
 version = "0.1.0"
 authors = ["Javier Arrieta <javier.arrieta@zalando.ie>"]
 edition = "2018"
