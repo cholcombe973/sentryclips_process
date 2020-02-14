@@ -5,6 +5,7 @@ use std::path::Path;
 
 use crate::formats::err_from_str;
 use crate::clip::SentryClip;
+use chrono::{Duration, Utc};
 
 mod camera;
 mod clip;
@@ -19,7 +20,10 @@ fn main() -> io::Result<()> {
     for dir_entry in clips_folders {
         match SentryClip::from_folder(&dir_entry) {
             Err(e) => log::warn!("Cannot process folder {} as a Sentry Clip folder: {}", dir_entry.path().display(), e),
-            Ok(clip) => if !clip.is_empty() { clip.process() },
+            Ok(clip) if clip.is_empty() => log::info!("Not processing folder {} because it does not contain any clips", clip.folder.display()),
+            Ok(clip) if clip.last_modified + Duration::minutes(15) > Utc::now().naive_utc() =>
+                log::info!("Not processing folder {}, it is too recent", clip.folder.display()),
+            Ok(clip) => clip.process(),
         }
     }
 

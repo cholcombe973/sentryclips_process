@@ -1,6 +1,7 @@
 extern crate chrono;
 
 use std::path::{PathBuf, Path};
+use std::time::SystemTime;
 use self::chrono::{NaiveDateTime, Utc};
 use crate::camera::{CameraFile, Camera};
 use std::fs::{DirEntry, File, remove_file};
@@ -14,6 +15,7 @@ use std::ffi::OsStr;
 pub struct SentryClip {
     pub folder: PathBuf,
     pub when: NaiveDateTime,
+    pub last_modified: NaiveDateTime,
     pub clips: Vec<CameraFile>,
 }
 
@@ -22,7 +24,8 @@ impl SentryClip {
         let clips = process_folder(entry)?;
         let when = parse_tesla_timestamp(file_stem(entry.path().as_path())?.as_str()).map_err(parse_error_to_io_error)?;
         let folder = entry.path();
-        Ok(SentryClip { folder, when, clips })
+        let last_modified = last_modified(entry)?;
+        Ok(SentryClip { folder, when, last_modified, clips })
     }
 
     pub fn is_empty(&self) -> bool {
@@ -162,4 +165,13 @@ fn list_files(root: &DirEntry) -> io::Result<Vec<DirEntry>> {
     }).collect();
     log::info!("Found {} clip files in folder {}", &children.len(), &root.path().display());
     Ok(children)
+}
+
+fn last_modified(entry: &DirEntry) -> io::Result<NaiveDateTime> {
+    let files = list_files(entry)?;
+    let mut modified_times: Vec<SystemTime> = files.into_iter().filter_map(|f| f.metadata().and_then(|m| m.modified()).ok()).collect();
+    modified_times.sort();
+    let last_modified = modified_times.last().and_then(|st| st.duration_since(SystemTime::UNIX_EPOCH).ok());
+    last_modified.map(|l| l.as_secs() as i64).map(|s| NaiveDateTime::from_timestamp(s, 0))
+        .ok_or(err_from_str("Cannot get last modified time of files"))
 }
