@@ -16,7 +16,7 @@ before_deploy: ci/before_deploy.sh
 deploy:
   api_key:
     secure: kQFWHYOIw+yLd+7iKNdovnX9UQTiBtpxRfJscLJoiFkcxboyh5ZNdsVjCqIXAPlVAPD0Jpi9Dxi3yDiyDXxrxHsKHeJfqUXdtayXLEINBHgr/IWo22sU5ZKNfdLGCzpfSwkTUpWW97kgEKOfj7j/HKI/TvKW97/We9Js/L6O5ek6GuTXPVzoKXEIKQGMLqBHQ6H32qG1ADo+KFWghmnNF/8PeRSJjv4ddi9fWk5vCXgaJ0Rpg2p9jv29al69LQdRlxCjx0C7CtcWPrg9WasoBpFi0XK2lmgfpgI/UzrrgllUnbzaRPwjXAiOORROte/JJOTgE9ktw+f0jIqN7lC5fr/Jg1FyPhVWEfIyKBw23Ll4qjZ9kmhaOIZ/n5rifsYYrKwpdOfvjwaqI4F4OaZAIXThM6K/VDbyvK0V/QKosP1UZ9og8urW/hnlJJOzwqMgHIgF4L8hdqVEcbkyHMA+GLynpH36FNsCql0fWgka0J1AMjSTFVbQfpRmz1S0+VOyvweKRSVdp176wGaR5233vZEA7MpT7B8FtM7nl1eGEkAS4DankEcIinF3lL1WBDmsi9aWUDksxi4BmcMHPLzfVQ9dj47N7/vfs3KclNR4/jh1SKyDHl4B9ZkkPL2/8gWRTvkQJ+obPZUu1BmUyYQQd+3XsoTjG2DMPWDE842nqMU=
-  file: homer-$TRAVIS_TAG-$TARGET.tar.gz
+  file: sentryclips_process-$TRAVIS_TAG-$TARGET.tar.gz
   on:
     tags: true
   provider: releases
