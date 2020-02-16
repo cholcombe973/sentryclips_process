@@ -50,7 +50,7 @@ impl SentryClip {
         );
         let result_tmp_file= result_tmp_file_path.to_str().ok_or(err_from_str("Cannot build a path for temporary file"))?;
         let _status = Command::new("ffmpeg")
-            .args(&["-f", "concat", "-safe", "0", "-i", playlist_filename.as_str(), "-c", "copy", result_tmp_file])
+            .args(&["-y", "-f", "concat", "-safe", "0", "-i", playlist_filename.as_str(), "-c", "copy", result_tmp_file])
             .stdout(Stdio::null())
             .status()?;
         Ok(result_tmp_file.to_string())
@@ -69,6 +69,7 @@ impl SentryClip {
             self.clips[0].start_time.timestamp()
         );
         let mut args = vec![
+            "-y",
             "-filter_complex",
             filter_params.as_str()
         ];
