@@ -4,7 +4,7 @@ use std::path::{PathBuf, Path};
 use std::time::SystemTime;
 use self::chrono::{NaiveDateTime, Utc};
 use crate::camera::{CameraFile, Camera};
-use std::fs::{DirEntry, File, remove_file};
+use std::fs::{DirEntry, File, remove_file, rename};
 use std::io;
 
 use crate::formats::{parse_tesla_timestamp, parse_error_to_io_error, file_stem, err_from_str};
@@ -62,10 +62,13 @@ impl SentryClip {
         Ok(result_tmp_file.to_string())
     }
 
-    pub fn create_mosaic(&self, file_cameras: &Vec<(String, Camera)>) -> io::Result<()> {
+    pub fn create_mosaic(&self, file_cameras: &Vec<(String, Camera)>, mosaic_file: &PathBuf) -> io::Result<()> {
 
-        let mosaic_file = self.mosaic_file()?;
         log::info!("Composing mosaic clip '{}'", mosaic_file.display());
+        let mosaic_file_name = mosaic_file.file_name().ok_or(err_from_str(format!("Invalid file name '{}'", mosaic_file.display()).as_str()))
+            .and_then(|f| f.to_str().ok_or(err_from_str("Invalid file name")))?;
+        let temporary_mosaic_file = mosaic_file.parent().ok_or(err_from_str(format!("Cannot find folder for mosaic file '{}'", mosaic_file.display()).as_str()))?
+            .join(format!(".{}", mosaic_file_name));
 
         let filter_params = format!(
             "nullsrc=size=1280x960 [base]; [0:v] setpts=PTS-STARTPTS, scale=640x480 [upperleft]; [1:v] setpts=PTS-STARTPTS, scale=640x480 [upperright]; \
@@ -94,6 +97,7 @@ impl SentryClip {
             .stderr(Stdio::null())
             .status()?;
 
+        rename(temporary_mosaic_file, mosaic_file)?;
         delete_files(file_cameras.iter().map(|t| t.0.clone()).collect())?;
 
         Ok(())
@@ -112,13 +116,13 @@ impl SentryClip {
         match self.mosaic_file() {
             Err(e) => log::warn!("Cannot calculate mosaic file name for clip folder {}: {}", self.folder.display(), e),
             Ok(mosaic_file) if mosaic_file.exists() => log::info!("Mosaic file '{}' already exists, skipping", mosaic_file.display()),
-            Ok(_) => {
+            Ok(mosaic_file) => {
                 let all_cameras = Camera::all_cameras().into_iter();
                 let clip_files_and_camera: Vec<(String, Camera)> = all_cameras.filter_map(|camera| {
                     self.concatenate_camera_files(&camera).ok().map(|f| (f, camera))
                 }).collect();
                 //Create mosaic
-                self.create_mosaic(&clip_files_and_camera)
+                self.create_mosaic(&clip_files_and_camera, &mosaic_file)
                     .map_err(|e| log::error!("Error creating mosaic for clip {}: {}", self.folder.display(), e)).unwrap();
             }
         }
