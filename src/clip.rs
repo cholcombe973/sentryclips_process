@@ -48,6 +48,12 @@ impl SentryClip {
         let result_tmp_file_path = self.folder.join(
             format!("{}-tmp.mp4", result_file.file_stem().and_then(|f| f.to_str()).ok_or(err_from_str(format!("Cannot get file name for file {}", result_file.display()).as_str()))?)
         );
+
+        if result_tmp_file_path.exists() {
+            log::info!("Deleting temporary clip leftover: '{}'", &result_tmp_file_path.display());
+            remove_file(&result_tmp_file_path)?
+        };
+
         let result_tmp_file= result_tmp_file_path.to_str().ok_or(err_from_str("Cannot build a path for temporary file"))?;
         let _status = Command::new("ffmpeg")
             .args(&["-y", "-f", "concat", "-safe", "0", "-i", playlist_filename.as_str(), "-c", "copy", result_tmp_file])
