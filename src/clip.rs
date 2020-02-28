@@ -58,6 +58,7 @@ impl SentryClip {
         let _status = Command::new("ffmpeg")
             .args(&["-y", "-f", "concat", "-safe", "0", "-i", playlist_filename.as_str(), "-c", "copy", result_tmp_file])
             .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status()?;
         Ok(result_tmp_file.to_string())
     }
@@ -89,7 +90,7 @@ impl SentryClip {
         };
         args.push("-c:v");
         args.push("libx264");
-        args.push(mosaic_file.to_str().ok_or(err_from_str("Cannot get path for mosaic file path"))?);
+        args.push(temporary_mosaic_file.to_str().ok_or(err_from_str("Cannot get path for mosaic file path"))?);
 
         Command::new("ffmpeg")
             .args(args)
@@ -123,7 +124,7 @@ impl SentryClip {
                 }).collect();
                 //Create mosaic
                 self.create_mosaic(&clip_files_and_camera, &mosaic_file)
-                    .map_err(|e| log::error!("Error creating mosaic for clip {}: {}", self.folder.display(), e)).unwrap();
+                    .map_err(|e| log::error!("Error creating mosaic for clip {}: {}", self.folder.display(), e)).ok().unwrap_or(());
             }
         }
 
