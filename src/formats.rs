@@ -1,4 +1,4 @@
-use chrono::{ParseError, ParseResult, NaiveDateTime};
+use chrono::{NaiveDateTime, ParseError, ParseResult};
 use std::io;
 use std::path::Path;
 
@@ -12,10 +12,13 @@ pub fn err_from_str(msg: &str) -> io::Error {
 
 pub fn parse_tesla_timestamp(date_str: &str) -> ParseResult<NaiveDateTime> {
     let res = NaiveDateTime::parse_from_str(date_str, "%Y-%m-%d_%H-%M-%S");
-    res.err().map(|err| log::error!("Error parsing time '{}': {}", date_str, err));
+    res.err()
+        .map(|err| log::error!("Error parsing time '{}': {}", date_str, err));
     res
 }
 
 pub fn file_stem(path: &Path) -> io::Result<String> {
-    path.file_stem().and_then(|f| f.to_str().map(|s| s.to_owned())).ok_or(err_from_str("Invalid filename"))
+    path.file_stem()
+        .and_then(|f| f.to_str().map(|s| s.to_owned()))
+        .ok_or(err_from_str("Invalid filename"))
 }
