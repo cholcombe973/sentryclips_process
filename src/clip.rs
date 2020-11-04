@@ -1,5 +1,7 @@
 extern crate chrono;
 
+use log::info;
+
 use self::chrono::{NaiveDateTime, Utc};
 use crate::camera::{Camera, CameraFile};
 use std::fs::{remove_file, rename, DirEntry, File};
@@ -13,6 +15,7 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 pub struct SentryClip {
+    pub ffmpeg: PathBuf,
     pub folder: PathBuf,
     pub when: NaiveDateTime,
     pub last_modified: NaiveDateTime,
@@ -20,13 +23,22 @@ pub struct SentryClip {
 }
 
 impl SentryClip {
-    pub fn from_folder(entry: &DirEntry) -> io::Result<SentryClip> {
+    pub fn from_folder(entry: &DirEntry, ffmpeg: &Path) -> io::Result<SentryClip> {
         let clips = process_folder(entry)?;
+        info!(
+            "clips: {}",
+            clips
+                .iter()
+                .map(|clip| clip.to_string())
+                .collect::<Vec<String>>()
+                .join(",")
+        );
         let when = parse_tesla_timestamp(file_stem(entry.path().as_path())?.as_str())
             .map_err(parse_error_to_io_error)?;
         let folder = entry.path();
         let last_modified = last_modified(entry)?;
         Ok(SentryClip {
+            ffmpeg: ffmpeg.to_path_buf(),
             folder,
             when,
             last_modified,
@@ -91,7 +103,7 @@ impl SentryClip {
         let result_tmp_file = result_tmp_file_path
             .to_str()
             .ok_or(err_from_str("Cannot build a path for temporary file"))?;
-        let _status = Command::new("ffmpeg")
+        let _status = Command::new(&self.ffmpeg)
             .args(&[
                 "-y",
                 "-f",
@@ -133,6 +145,7 @@ impl SentryClip {
             ))?
             .join(format!(".{}", mosaic_file_name));
 
+        // TODO: Replace this with the mp4 library
         let filter_params = format!(
             "nullsrc=size=1280x960 [base]; [0:v] setpts=PTS-STARTPTS, scale=640x480 [upperleft]; [1:v] setpts=PTS-STARTPTS, scale=640x480 [upperright]; \
             [2:v] setpts=PTS-STARTPTS, scale=640x480 [lowerleft]; [3:v] setpts=PTS-STARTPTS, scale=640x480 [lowerright]; [base][upperleft] overlay=shortest=1 [tmp1]; \
@@ -154,7 +167,7 @@ impl SentryClip {
                 .ok_or(err_from_str("Cannot get path for mosaic file path"))?,
         );
 
-        Command::new("ffmpeg")
+        Command::new(&self.ffmpeg)
             .args(args)
             .stdout(Stdio::null())
             .stderr(Stdio::null())

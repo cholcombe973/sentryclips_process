@@ -11,6 +11,7 @@ pub fn err_from_str(msg: &str) -> io::Error {
 }
 
 pub fn parse_tesla_timestamp(date_str: &str) -> ParseResult<NaiveDateTime> {
+    //2020-10-22_10-37-28-right_repeater
     let res = NaiveDateTime::parse_from_str(date_str, "%Y-%m-%d_%H-%M-%S");
     res.err()
         .map(|err| log::error!("Error parsing time '{}': {}", date_str, err));
